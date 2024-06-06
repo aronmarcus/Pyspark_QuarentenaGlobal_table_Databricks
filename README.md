@@ -48,8 +48,8 @@ Para organizar o projeto de forma eficiente, utilizaremos uma estrutura de pasta
    
 
 ### Origem dos dados
-Para as campanhas de relacionamento com o cliente, são gravados dados de atuação em arquivos Excel (xlsx) no Sharepoint.
-Para as campanhas do Marketing, existe uma estrutura de pastas que podem ser acessadas via Protocolo de Transferência Seguro (SFTP) com arquivos csv.
+Para as campanhas de relacionamento com o cliente, são gravados dados de atuação em arquivos Excel (xlsx) no Sharepoint.<br>
+Para as campanhas do Marketing, existe uma estrutura de pastas que podem ser acessadas via Protocolo de Transferência Seguro (SFTP) do Salesforce Marketing Cloud com arquivos csv.<br>
 Também uma base de suspeitas de fraude que são registradas no Data Lake em um bucket S3 da AWS em parquet, além de um arquivo json com uma lista de restritos.
 Por fim,  campanhas de recomendação de produtos e ofertas que já estão disponíveis no Delta Lake do Unity Catalog. 
 
@@ -123,6 +123,8 @@ def download_file_from_sftp(sftp, remote_path, local_path):
 Na pasta `etl`, utilizaremos as funções definidas para extrair dados dos diferentes sistemas de origem e gravamos nos diretórios do Volumes do Databricks. 
 *Em conformidade com as melhores práticas de segurança da informação e LGPD, as credenciais das APIs são ocultadas como variáveis de ambiente utilizando [Databricks Secrets](https://docs.databricks.com/en/security/secrets/index.html) (`dbutils.secrets`).*
 
+
+
 ```python
 # etl/api_extracao.ipynb
 
@@ -133,7 +135,7 @@ password = dbutils.secrets.get('scope-sharepoint', 'sp_password')
 file_url = "/sites/<site>/Shared Documents/crm_data.xlsx"
 local_path_crm = "/dbfs/team/Volumes/temp/crm_data.xlsx"
 
-host = "<sftp_host>"
+host = "<sftp_salesforce_marketingcloud_host>"
 port = 22
 username_sftp = dbutils.secrets.get('scope-marketing', 'sftp_username')
 password_sftp = dbutils.secrets.get('scope-marketing', 'sftp_password')
@@ -183,7 +185,7 @@ cleaned_marketing_data 		= marketing_spark_df.dropDuplicates().filter(marketing_
 standardized_marketing_data = (
 	cleaned_marketing_data.selectExpr(
 		"id_cliente","email", "telefone", "subject as assunto",
-		"data_envio", "date_diff(today(), data_envio) as qtd_dias"
+		"data_envio", "date_diff(today(), data_envio) as qtd_dias")
 			)
 
 
@@ -192,7 +194,7 @@ cleaned_fraude_data = fraude_data.filter(col('data_exclus').isNull())
 standardized_fraude_data = (
 	cleaned_fraude_data.withColumnRenamed("dt_inclus", "data_envio")
 					   .withColumn("qtd_dias", datediff(current_date(), col("data_envio")))
-					   .withColumn("assunto", lit('suspeita de fraude')
+					   .withColumn("assunto", lit('suspeita de fraude'))
 					)
 
 
@@ -203,7 +205,7 @@ standardized_restritos_data = (
 			,col('contatos.email').alias('email')
 			,col('contatos.numero_telefone').alias('telefone')
 			,col('motivos.descricao').alias('assunto')
-			,col('contatos.data_solicitacao').cast('date').alias('data_envio')
+			,col('contatos.data_solicitacao').cast('date').alias('data_envio'))
 		).distinct()
 					
 
@@ -243,7 +245,7 @@ Com o Spark SQL, podemos executar um código DDL *(Data Definition Language)* pa
 Por fim, a base é armazenada no Delta Lake como tabela gerenciada *(Managed Table)* dentro de uma database que fica dentro de um catálogo, seguindo os três níveis estruturais do Unity Catalog: `catalog.database.quarentena_global`. 
 
 ```python
-# etl/carregamento.ipynb
+# etl/carga.ipynb
 
 # Criação de view temporária
 consolidated_data.createOrReplaceTempView('quarentena_global_tempview')
