@@ -1,4 +1,4 @@
-# Implementação de Quarentena de Clientes utilizando PySpark no Databricks
+# Quarentena Inteligente e Cuidado com Clientes: Estratégias técnicas com PySpark
 
 ## Introdução
 
