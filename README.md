@@ -4,6 +4,7 @@
 
 A centralização de dados e a gestão eficiente das comunicações com clientes representam desafios críticos em ambientes empresariais modernos. Com a expansão de múltiplos canais de comunicação, tais como CRM, Marketing digital e outras plataformas de engajamento, torna-se imperativo manter a consistência e relevância das interações com os clientes. A eficácia das estratégias de comunicação está diretamente ligada à capacidade de consolidar informações provenientes de diversas fontes e de garantir o cumprimento das regras de supressão de clientes, prevenindo contatos excessivos ou inadequados.
 
+
 ## Objetivo
 
 O objetivo da Tabela de Quarentena de Clientes é criar uma solução centralizada que permita:
@@ -71,6 +72,7 @@ Trabalhamos com múltiplos formatos de arquivo: xlsx, csv, json, parquet e delta
 
 Para esta abordagem, utilizamos um notebook na pasta `config` para carregar as bibliotecas necessárias e configurar as variáveis de ambiente. A configuração do Spark permite criar uma sessão de Spark que será utilizada para processamento distribuído, nomeada 'Quarentena Global'.
 
+
 ```python
 # config/leitura_libs_variaveis.ipynb
 
@@ -86,9 +88,11 @@ spark = SparkSession.builder.appName("QuarentenaGlobal").getOrCreate()
 
 ```
 
+
 #### 2. Funções Utilizadas
 
 Definimos funções específicas para conectar e extrair dados de diversas fontes, como SharePoint e SFTP. Essas funções são essenciais para a etapa de extração de dados e estão armazenadas no notebook na pasta `config`, juntamente com códigos de parâmetros, bibliotecas e variáveis.
+
 
 ```python
 # config/funcoes.ipynb
@@ -117,6 +121,7 @@ def download_file_from_sftp(sftp, remote_path, local_path):
     sftp.close()
     transport.close()
 ```
+
 
 #### 3. Extração de Dados
 
@@ -161,6 +166,7 @@ ofertas_data 	  = spark.read.format("delta").table("catalog.database.ofertas_dat
 fraude_data 	  = spark.read.format("delta").table("catalog.database.fraude_data")
 ```
 
+
 Após extração dos arquivos, fazemos a leitura de todos eles em seus diferentes formatos, transformando-os em Spark Dataframes para serem trabalhados a seguir. *Note que utilizamos uma função do Pandas para ler o arquivo excel antes de transforma-lo.*
 
 #### 4. Transformação dos Dados
@@ -168,6 +174,7 @@ Após extração dos arquivos, fazemos a leitura de todos eles em seus diferente
 Realizamos a limpeza, padronização e enriquecimento dos dados extraídos para garantir a consistência e a qualidade dos mesmos. Implementamos as regras de quarentena específicas para cada fonte de dados. É importante que todos os Dataframes tenham as mesmas colunas com os mesmos tipos de dados para posteriormente ser feito a união destes com seus respectivos filtros de periodicidade da quarentena.
 
 Todos as fontes tem a coluna id_cliente como chave primária, além de informações de email, telefone, assunto e data de envio. Será necessário adicionar colunas informando a diferença de dias entre a data do processamento e a data do envio assim como, inferir a data da saída prevista, baseado na regra de negócio. Para isso, utilizaremos as funções `datediff` e `dateadd` da lib do pyspark já importadas no notebook de bibliotecas. Além de renomear algumas colunas que tem títulos diferentes em algumas bases.
+
 
 ```python
 # etl/transformacao.ipynb
@@ -244,6 +251,7 @@ Com o Spark SQL, podemos executar um código DDL *(Data Definition Language)* pa
 
 Por fim, a base é armazenada no Delta Lake como tabela gerenciada *(Managed Table)* dentro de uma database que fica dentro de um catálogo, seguindo os três níveis estruturais do Unity Catalog: `catalog.database.quarentena_global`. 
 
+
 ```python
 # etl/carga.ipynb
 
@@ -310,17 +318,17 @@ select * from catalog.database.quarentena_global
 ```
 
 
-| id_cliente | canal        | email                    | telefone   | assunto            | data_envio | qtd_dias | saida_prevista | data_carga |
-|------------|--------------|------------------------- |------------|------------------- |------------|--------- |----------------|------------|
-| 1234567890 | CRM          | cliente@exemplo.com      | 999999999  | Campanha           | 2024-05-08 | 20       | 2024-06-07     | 2024-05-28 |
-| 2345678901 | Marketing    | marketing@exemplo.com    | 988888888  | Email boas vindas  | 2024-05-24 | 4        | 2024-05-31     | 2024-05-28 |
-| 3456789012 | Recomendacao | recomendacao@exemplo.com | 977777777  | Novo Produto       | 2024-05-18 | 10       | 2024-06-02     | 2024-05-28 |
-| 1001001001 | Ofertas      | ofertas@exemplo.com      | 955555557  | Promoção           | 2024-05-26 | 2        | 2024-05-31     | 2024-05-28 |
-| 4567890123 | Fraude       | fraude@exemplo.com       | 966666666  | Suspeita de fraude | 2024-04-01 | NULL     | NULL           | 2024-05-28 |
-| 4888888800 | Restritos    | restritos@exemplo.com    | 944444443  | Reclamação         | 2024-03-01 | 88       | 2024-05-29     | 2024-05-28 |
+| id_cliente | canal        | email                      | telefone   | assunto            | data_envio | qtd_dias | saida_prevista | data_carga |
+|------------|--------------|--------------------------- |------------|------------------- |------------|--------- |----------------|------------|
+| 1234567890 | CRM          | `cliente@exemplo.com`      | 999999999  | Campanha           | 2024-05-08 | 20       | 2024-06-07     | 2024-05-28 |
+| 2345678901 | Marketing    | `marketing@exemplo.com`    | 988888888  | Email boas vindas  | 2024-05-24 | 4        | 2024-05-31     | 2024-05-28 |
+| 3456789012 | Recomendacao | `recomendacao@exemplo.com` | 977777777  | Novo Produto       | 2024-05-18 | 10       | 2024-06-02     | 2024-05-28 |
+| 1001001001 | Ofertas      | `ofertas@exemplo.com`      | 955555557  | Promoção           | 2024-05-26 | 2        | 2024-05-31     | 2024-05-28 |
+| 4567890123 | Fraude       | `fraude@exemplo.com`       | 966666666  | Suspeita de fraude | 2024-04-01 | NULL     | NULL           | 2024-05-28 |
+| 4888888800 | Restritos    | `restritos@exemplo.com`    | 944444443  | Reclamação         | 2024-03-01 | 88       | 2024-05-29     | 2024-05-28 |
 
 
-![](img/table_example.png)
+![](img/table_sql__example.png)
 
 
 
