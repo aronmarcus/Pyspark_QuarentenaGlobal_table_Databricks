@@ -30,6 +30,8 @@ Para organizar o projeto de forma eficiente, utilizaremos uma estrutura de pasta
                 |-- quarentena_global.ipynb
 ```
 
+![](img/estrutura_pastas.png)
+
 
 
 ### Descrição das Pastas
@@ -286,6 +288,10 @@ spark.stop()
 Por fim, temos o notebook principal na pasta `main` responsável por executar o pipeline e rodar todos os códigos dos notebooks anteriores na ordem já tratada até o momento. Utilizaremos o comando `%run` informando o caminho das pastas onde estão cada notebook em ordem de execução. Também é possível agendar a execução deste código principal na aba ‘Schedule’, com várias opções de data, horários, alertas e outras configurações adicionais, transformando essa execução em um job, podendo ser monitorado no Fluxo de trabalho ‘Workflows’ conforme ilustrado na imagem abaixo:
 
 
+![](img/main_example.png)
+
+![](img/job_example.png)
+
 
 ## Tabela Final - Integração com o Unity Catalog
 
@@ -310,6 +316,10 @@ select * from catalog.database.quarentena_global
 | 1001001001 | Ofertas      | ofertas@exemplo.com      | 955555557  | Promoção           | 2024-05-26 | 2        | 2024-05-31     | 2024-05-28 |
 | 4567890123 | Fraude       | fraude@exemplo.com       | 966666666  | Suspeita de fraude | 2024-04-01 | NULL     | NULL           | 2024-05-28 |
 | 4888888800 | Restritos    | restritos@exemplo.com    | 944444443  | Reclamação         | 2024-03-01 | 88       | 2024-05-29     | 2024-05-28 |
+
+
+![](img/table_example.png)
+
 
 
 ## Conclusão
