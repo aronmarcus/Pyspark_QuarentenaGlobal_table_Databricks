@@ -12,11 +12,14 @@ O objetivo da Tabela de Quarentena de Clientes é criar uma solução centraliza
 - Monitorar e controlar a frequência de comunicações com cada cliente de acordo com regras de negócio definidas.
 - Implementar um mecanismo de quarentena para evitar comunicações excessivas e desnecessárias com os clientes.
 
+
 Embora exista um Data Lake centralizado, ele pode não contemplar todos os canais de comunicação em sua totalidade devido a constantes mudanças e expansões. Diante desse contexto, desenvolvemos a Tabela de Quarentena utilizando tecnologias de Big Data, como PySpark, e com a infraestrutura de processamento distribuído do Databricks, conseguimos manipular grandes volumes de dados de maneira eficiente, possibilitando a aplicação de regras complexas de negócio.
+
 
 ## Estrutura do Projeto
 
-Para organizar o projeto de forma eficiente, utilizaremos uma estrutura de pastas similar a desenvolvimento de software, separando o código-fonte das demais interfaces de configurações, apis, entre outros, permitindo uma melhor gestão e manutenção do código.
+Para organizar o projeto de forma eficiente, utilizaremos uma estrutura de pastas dentro do Workspace Databricks, similar a desenvolvimento de software, separando o código-fonte das demais interfaces de configurações, apis, entre outros, permitindo uma melhor gestão e manutenção do código.
+Definimos o nome da aplicação de 'Quarentena Global'.
 
 ```
 |-- Quarentena Global
@@ -70,7 +73,7 @@ Trabalhamos com múltiplos formatos de arquivo: xlsx, csv, json, parquet e delta
 ### Desenvolvimento
 ####  1. Leitura de Bibliotecas e Configuração
 
-Para esta abordagem, utilizamos um notebook na pasta `config` para carregar as bibliotecas necessárias e configurar as variáveis de ambiente. A configuração do Spark permite criar uma sessão de Spark que será utilizada para processamento distribuído, nomeada 'Quarentena Global'.
+Para esta abordagem, utilizamos um notebook na pasta `config` para carregar as bibliotecas necessárias e configurar as variáveis de ambiente. A configuração do Spark permite criar uma sessão de Spark que será utilizada para processamento distribuído, nomeada 'QuarentenaGlobal'.
 
 
 ```python
@@ -126,7 +129,7 @@ def download_file_from_sftp(sftp, remote_path, local_path):
 #### 3. Extração de Dados
 
 Na pasta `etl`, utilizaremos as funções definidas para extrair dados dos diferentes sistemas de origem e gravamos nos diretórios do Volumes do Databricks. 
-*Em conformidade com as melhores práticas de segurança da informação e LGPD, as credenciais das APIs são ocultadas como variáveis de ambiente utilizando [Databricks Secrets](https://docs.databricks.com/en/security/secrets/index.html) (`dbutils.secrets`).*
+**Em conformidade com as melhores práticas de segurança da informação e LGPD, os dados sensíveis das credenciais das APIs são ocultadas como variáveis de ambiente utilizando [Databricks Secrets](https://docs.databricks.com/en/security/secrets/index.html) `dbutils.secrets`.**
 
 
 
@@ -173,7 +176,7 @@ Após extração dos arquivos, fazemos a leitura de todos eles em seus diferente
 
 Realizamos a limpeza, padronização e enriquecimento dos dados extraídos para garantir a consistência e a qualidade dos mesmos. Implementamos as regras de quarentena específicas para cada fonte de dados. É importante que todos os Dataframes tenham as mesmas colunas com os mesmos tipos de dados para posteriormente ser feito a união destes com seus respectivos filtros de periodicidade da quarentena.
 
-Todos as fontes tem a coluna id_cliente como chave primária, além de informações de email, telefone, assunto e data de envio. Será necessário adicionar colunas informando a diferença de dias entre a data do processamento e a data do envio assim como, inferir a data da saída prevista, baseado na regra de negócio. Para isso, utilizaremos as funções `datediff` e `dateadd` da lib do pyspark já importadas no notebook de bibliotecas. Além de renomear algumas colunas que tem títulos diferentes em algumas bases.
+Todos as fontes tem a coluna id_cliente como chave primária, além de informações de email, telefone, assunto e data de envio. Será necessário adicionar colunas informando a diferença de dias entre a data do processamento e a data do envio assim como, inferir a data da saída prevista, baseado na regra de negócio. Para isso, utilizaremos as funções `datediff` e `date_add` da lib do pyspark já importadas no notebook de bibliotecas. Além de renomear algumas colunas que tem títulos diferentes em algumas bases.
 
 
 ```python
@@ -239,7 +242,7 @@ consolidated_data = (
 ```
 
 
-Note que, após a transformação dos dados, é possível unir todos os dataframes e filtrar a quantidade de dias de acordo a regra de negócio e acrescentar uma coluna referente a data da carga dos dados (aqui setado como '2024-05-28'). 
+Note que, após a transformação dos dados, é possível unir todos os dataframes com dados distintos e filtrar a quantidade de dias de acordo a regra de negócio e acrescentar uma coluna referente a data da carga dos dados (aqui setado como '2024-05-28'). 
 ***Os clientes que ultrapassam a quantidade de dias estipulados, saem automaticamente da quarentena e ficam disponíveis para contato novamente, assim o histórico pode ser consultado através das datas de cargas passadas***.
 
 #### 5. Carregamento dos Dados
@@ -249,7 +252,7 @@ Carregamos os dados da tempview na tabela 'quarentena_global' que será criada n
  
 Com o Spark SQL, podemos executar um código DDL *(Data Definition Language)* para fazer a criação da tabela caso não exista no catálogo.  Em seguida, os dados consolidados da tempview são inseridos na tabela usando as cláusulas SQL `CREATE TABLE IF NOT EXIST` e `INSERT INTO`. A tabela será particionada por 'data_carga' e 'canal', com o 'id_cliente' e 'canal' como chaves primárias. 
 
-Por fim, a base é armazenada no Delta Lake como tabela gerenciada *(Managed Table)* dentro de uma database que fica dentro de um catálogo, seguindo os três níveis estruturais do Unity Catalog: `catalog.database.quarentena_global`. 
+Por fim, a base é armazenada no Delta Lake como tabela gerenciada *(Managed Table)* dentro de uma database que fica dentro de um catálogo, seguindo os [níveis hierárquicos dos objetos de dados do Unity Catalog](https://docs.databricks.com/pt/data-governance/unity-catalog/index.html): `catalog.database.quarentena_global`. 
 
 
 ```python
@@ -334,6 +337,6 @@ select * from catalog.database.quarentena_global
 
 ## Conclusão
 
-A implementação da tabela de Quarentena de Clientes utilizando os poderosos recursos de processamento distribuído e transformação de dados complexos do Spark no Databricks proporciona uma visão centralizada e consolidada das interações dos clientes através de múltiplos canais de comunicação. Este processo assegura a consistência das ações enviadas, respeitando a privacidade e preferências dos clientes, e evitando comunicações excessivas. Com o uso de tecnologias de Big Data, implementamos uma solução escalável e eficiente para a gestão das comunicações com clientes, atendendo as regras do negócio assim como às exigências de conformidade e segurança da informação.
+A implementação da Quarentena de Clientes utilizando os poderosos recursos de processamento distribuído e transformação de dados complexos do Spark no Databricks proporciona uma visão centralizada e consolidada das interações dos clientes através de múltiplos canais de comunicação. Este processo assegura a consistência das ações enviadas, respeitando a privacidade e preferências dos clientes, e evitando comunicações excessivas. Com o uso de tecnologias de Big Data, implementamos uma solução escalável e eficiente para a gestão das comunicações com clientes, atendendo as regras do negócio assim como às exigências de conformidade e segurança da informação.
 
 A utilização de Delta Lake proporciona transações ACID *(Atomicidade, Consistência, Isolamento e Durabilidade)* e versionamento de dados, assegurando a integridade e consistência dos dados armazenados. O Unity Catalog facilita o gerenciamento, auditoria e governança dos dados em larga escala e permite que a tabela de quarentena seja compartilhada com outros parceiros da Databricks, facilitando a colaboração interdepartamental e com terceiros. Além disso, a tabela pode ser consultada antes de qualquer nova campanha ou ação, garantindo que os clientes em quarentena não sejam contatados, otimizando a eficácia das estratégias de comunicação e respeitando as políticas de quarentena estabelecidas.
