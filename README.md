@@ -228,6 +228,43 @@ quarentena_restritos 	= standardized_restritos_data.withColumn("qtd_dias", dated
 													 .withColumn("saida_prevista", lit(90))
 
 
+```
+
+Podemos também automatizar o processo, desde que seja possível estabelecer um padrão na regra de negócio. Suponhamos que as novas ações futuras já estejam no Delta Lake Databricks como tabelas no Unity Catalog e que sejam padronizadas com um período de quarentena de 40 dias. 
+Em seguida, padronizamos as colunas e aplicamos o filtro de 40 dias em uma consulta SQL utilizando spark.sql dentro de uma função Python chamada padronizacao_quarenta_dias, que recebe uma tabela como parâmetro:
+
+```python
+def padronizacao_quarenta_dias(tabela):
+    '''
+    Função para padronização de schema de novas ações como 40 dias.
+    '''
+
+    # criacao do dataframe padrão com filtro de 40 dias 
+    df = spark.sql(
+        f"""
+        SELECT DISTINCT
+              id_cliente
+            , canal
+            , email
+            , telefone
+            , assunto
+            , data_envio
+            , DATEDIFF(CAST(today() AS DATE), CAST(data_envio AS DATE)) AS qtd_dias
+            , DATE_ADD(data_envio, 40) AS data_saida_prevista
+
+        FROM {tabela}
+        """
+    ).where(col("qtd_dias") <= 40) 
+
+    return df
+
+
+nova_acao = padronizacao_quarenta_dias("catalog.database.tabela_nova_acao")
+```
+
+Criamos uma variável chamada ‘nova_acao’ que recebe essa função com uma tabela da nova ação como parâmetro, e então, seguimos com a junção das ações.
+
+```python
 # Unificação dos dados em uma única estrutura
 consolidated_data = (
 	quarentena_crm.where(col("qtd_dias") <= 30)
@@ -236,6 +273,7 @@ consolidated_data = (
 				  .union(quarentena_restritos.filter   ( col("qtd_dias") <= 90) )
 				  .union(quarentena_ofertas.filter     ( col("qtd_dias") <= 5 ) )
 				  .union(quarentena_fraude)
+				  .union(nova_acao)
 				  
 		).withColumn("data_carga" lit(f'{current_date()}').cast('date'))
 
@@ -265,7 +303,7 @@ consolidated_data.createOrReplaceTempView('quarentena_global_tempview')
 # Criação da tabela permanente no Unity Catalog
 spark.sql("""
 CREATE TABLE IF NOT EXIST catalog.database.quarentena_global (
-    cpf STRING,
+    id_cliente STRING,
     canal STRING,
     email STRING,
     telefone STRING,
